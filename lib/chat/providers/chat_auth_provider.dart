@@ -8,12 +8,15 @@ class ChatAuthProvider extends ChangeNotifier {
   bool _loading = false;
   String? _error;
 
+  // [Fix #2] Store subscription so it can be canceled in dispose().
+  late final _authSub = _client.auth.onAuthStateChange.listen((data) {
+    _user = data.session?.user;
+    notifyListeners();
+  });
+
   ChatAuthProvider() {
     _user = _client.auth.currentUser;
-    _client.auth.onAuthStateChange.listen((data) {
-      _user = data.session?.user;
-      notifyListeners();
-    });
+    _authSub; // initialize the late field eagerly
   }
 
   User? get user => _user;
@@ -50,5 +53,11 @@ class ChatAuthProvider extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _authSub.cancel();
+    super.dispose();
   }
 }
