@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'chat/pages/chat_list_page.dart';
 import 'chat/pages/login_page.dart';
 import 'chat/providers/chat_auth_provider.dart';
 import 'core/services/background_service.dart';
@@ -14,9 +13,11 @@ import 'data/sources/bluetooth_source.dart';
 import 'data/sources/firestore_source.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/bridge_provider.dart';
+import 'profile/pages/profile_dashboard_page.dart';
+import 'profile/providers/profile_provider.dart';
 
-// ── Supabase project credentials ───────────────────────────────────────────
-// Supply these at build time:
+// ── Supabase credentials ───────────────────────────────────────────────────
+// Supply at build time:
 //   flutter run --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
 //               --dart-define=SUPABASE_ANON_KEY=eyJ...
 const _supabaseUrl = String.fromEnvironment(
@@ -35,7 +36,7 @@ void main() async {
   await Firebase.initializeApp();
   await initBackgroundService();
 
-  // Supabase — AI 채팅 앱
+  // Supabase — 사용자 프로필 관리 + AI 채팅
   await Supabase.initialize(
     url: _supabaseUrl,
     anonKey: _supabaseAnonKey,
@@ -51,7 +52,7 @@ class DataManageApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ── Monitoring (Firebase) ──────────────────────────────────────────
+        // ── 노인 모니터링 (Firebase) ───────────────────────────────────
         ChangeNotifierProvider(
           create: (_) => AuthProvider(AuthRepositoryImpl()),
         ),
@@ -63,8 +64,10 @@ class DataManageApp extends StatelessWidget {
             networkMonitor: NetworkMonitor(),
           ),
         ),
-        // ── Chat (Supabase) ────────────────────────────────────────────────
+        // ── 사용자 인증 (Supabase) ────────────────────────────────────
         ChangeNotifierProvider(create: (_) => ChatAuthProvider()),
+        // ── 프로필 CRUD (Supabase user_profiles) ─────────────────────
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
       ],
       child: MaterialApp(
         title: '데이터 관리 앱',
@@ -76,20 +79,22 @@ class DataManageApp extends StatelessWidget {
           ),
           scaffoldBackgroundColor: const Color(0xFF0F0F1A),
         ),
-        home: const _ChatAuthGate(),
+        home: const _AuthGate(),
       ),
     );
   }
 }
 
-/// Routes to LoginPage or ChatListPage based on Supabase session state.
-/// Session is persisted automatically across app restarts.
-class _ChatAuthGate extends StatelessWidget {
-  const _ChatAuthGate();
+/// Routes based on Supabase session state.
+/// Session is persisted across restarts automatically by supabase_flutter.
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<ChatAuthProvider>();
-    return auth.isAuthenticated ? const ChatListPage() : const LoginPage();
+    return auth.isAuthenticated
+        ? const ProfileDashboardPage()
+        : const LoginPage();
   }
 }
