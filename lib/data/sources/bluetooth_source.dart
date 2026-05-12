@@ -24,22 +24,34 @@ class BluetoothSource {
     try {
       _stateSub = FlutterBluePlus.adapterState.listen((state) async {
         if (state == BluetoothAdapterState.on) {
-          await FlutterBluePlus.startScan(
-              timeout: const Duration(seconds: 30), continueScanning: true);
-          _scanSub = FlutterBluePlus.scanResults.listen(_onScanResult);
+          // [Fix #2] Cancel previous subscription before creating a new one.
+          await _scanSub?.cancel();
+          _scanSub = null;
+          // [Fix #5] Wrap inner async work so errors don't become unhandled.
+          try {
+            // [Fix #1] Removed non-existent `continueScanning` parameter.
+            await FlutterBluePlus.startScan(
+                timeout: const Duration(seconds: 30));
+            _scanSub = FlutterBluePlus.scanResults.listen(_onScanResult);
+          } catch (_) {
+            // scan permission denied or hardware error — simulation continues
+          }
+        } else {
+          // BT turned off: clean up scan subscription immediately.
+          await _scanSub?.cancel();
+          _scanSub = null;
         }
       });
     } catch (_) {
-      // BT unavailable on this device — simulation continues
+      // BT adapter unavailable on this device — simulation continues
     }
   }
 
   void _onScanResult(List<ScanResult> results) {
-    // Filter for Wear OS / health devices by service UUID or name prefix
     for (final r in results) {
       if (r.device.platformName.toLowerCase().contains('wear') ||
           r.device.platformName.toLowerCase().contains('health')) {
-        // Real device found; real data integration can be wired here
+        // Real device found; wire actual data parsing here
       }
     }
   }
@@ -47,6 +59,8 @@ class BluetoothSource {
   void _startSimulation() {
     _simulationTimer?.cancel();
     _simulationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      // [Fix #3] Guard against adding to a closed stream after dispose().
+      if (_controller.isClosed) return;
       _controller.add(PacketModel(
         id: 'WEAR-${_uuid.v4().substring(0, 8).toUpperCase()}',
         timestamp: DateTime.now(),
@@ -56,14 +70,17 @@ class BluetoothSource {
     });
   }
 
-  Future<void> stopScanning() async {
+  // [Fix #4] Made synchronous so dispose() can safely call it then close the
+  // stream without an await gap. FlutterBluePlus.stopScan() is fire-and-forget;
+  // the scan will also stop naturally when its timeout expires.
+  void stopScanning() {
     _isScanning = false;
     _simulationTimer?.cancel();
     _scanSub?.cancel();
     _stateSub?.cancel();
-    try {
-      await FlutterBluePlus.stopScan();
-    } catch (_) {}
+    _scanSub = null;
+    _stateSub = null;
+    FlutterBluePlus.stopScan().ignore();
   }
 
   void dispose() {
