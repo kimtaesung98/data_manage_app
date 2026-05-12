@@ -47,17 +47,25 @@ class ProfileService {
   }
 
   /// Update only nickname and/or avatar URL.
+  /// [Fix #7] If both fields are null, skip the network call and return the
+  /// current profile to avoid sending an empty UPDATE to Supabase.
   Future<UserProfile> updateProfile({
     required String id,
     String? nickname,
     String? avatarUrl,
   }) async {
+    final updates = <String, dynamic>{
+      if (nickname != null) 'nickname': nickname,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+    };
+    if (updates.isEmpty) {
+      final current = await fetchProfile();
+      if (current != null) return current;
+      throw StateError('updateProfile called with no fields and no existing profile');
+    }
     final row = await _client
         .from(_table)
-        .update({
-          if (nickname != null) 'nickname': nickname,
-          if (avatarUrl != null) 'avatar_url': avatarUrl,
-        })
+        .update(updates)
         .eq('id', id)
         .select()
         .single();

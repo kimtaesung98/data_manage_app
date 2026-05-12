@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
 
@@ -51,11 +50,14 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Deletes the user_profiles row only.
+  /// [Fix #6] signOut is NOT called here — the caller (ProfileDashboardPage)
+  /// must invoke ChatAuthProvider.signOut() afterwards to avoid a double
+  /// state-change conflict with ChatAuthProvider's onAuthStateChange listener.
   Future<void> deleteProfile() async {
     _setLoading();
     try {
       await _service.deleteProfile();
-      await Supabase.instance.client.auth.signOut();
       _profile = null;
       _status = ProfileStatus.idle;
     } catch (e) {

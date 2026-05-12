@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../chat/pages/chat_list_page.dart';
 import '../../chat/providers/chat_auth_provider.dart';
+import '../models/user_profile.dart';
 import '../providers/profile_provider.dart';
 import 'edit_profile_page.dart';
 
@@ -50,7 +51,12 @@ class _ProfileDashboardPageState extends State<ProfileDashboardPage> {
       ),
     );
     if (confirmed == true && mounted) {
+      // Delete DB row first, then sign out via ChatAuthProvider so its
+      // onAuthStateChange listener handles the session cleanup cleanly.
       await context.read<ProfileProvider>().deleteProfile();
+      if (mounted) {
+        await context.read<ChatAuthProvider>().signOut();
+      }
     }
   }
 
@@ -58,7 +64,7 @@ class _ProfileDashboardPageState extends State<ProfileDashboardPage> {
   Widget build(BuildContext context) {
     final profileProv = context.watch<ProfileProvider>();
     final authProv = context.watch<ChatAuthProvider>();
-    final supaUser = Supabase.instance.client.auth.currentUser;
+    final User? supaUser = Supabase.instance.client.auth.currentUser;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
@@ -114,8 +120,9 @@ class _ProfileDashboardPageState extends State<ProfileDashboardPage> {
 // ── Dashboard body ─────────────────────────────────────────────────────────
 
 class _DashboardBody extends StatelessWidget {
-  final dynamic profile;
-  final dynamic supaUser;
+  // [Fix #5] Use concrete types instead of dynamic.
+  final UserProfile? profile;
+  final User? supaUser;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -130,8 +137,8 @@ class _DashboardBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final email = supaUser?.email ?? '';
     final nickname = profile?.nickname ?? email.split('@').first;
-    final avatarUrl = profile?.avatarUrl as String?;
-    final updatedAt = profile?.updatedAt as DateTime?;
+    final avatarUrl = profile?.avatarUrl;
+    final updatedAt = profile?.updatedAt;
 
     return ListView(
       padding: const EdgeInsets.all(20),

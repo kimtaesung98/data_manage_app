@@ -9,6 +9,7 @@ import 'core/services/background_service.dart';
 import 'core/services/network_monitor.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/buffer_repository_impl.dart';
+import 'domain/repositories/buffer_repository.dart';
 import 'data/sources/bluetooth_source.dart';
 import 'data/sources/firestore_source.dart';
 import 'presentation/providers/auth_provider.dart';
@@ -60,7 +61,7 @@ class DataManageApp extends StatelessWidget {
           create: (_) => BridgeProvider(
             btSource: BluetoothSource(),
             firestoreSource: FirestoreSource(),
-            bufferRepo: BufferRepositoryImpl(),
+            bufferRepo: BufferRepositoryImpl() as BufferRepository,
             networkMonitor: NetworkMonitor(),
           ),
         ),

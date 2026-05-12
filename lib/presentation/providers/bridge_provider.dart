@@ -2,10 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/services/network_monitor.dart';
 import '../../data/models/packet_model.dart';
-import '../../data/repositories/buffer_repository_impl.dart';
 import '../../data/sources/bluetooth_source.dart';
 import '../../data/sources/firestore_source.dart';
 import '../../domain/entities/packet.dart';
+// [Fix #4] Depend on the abstract interface, not the concrete implementation.
+import '../../domain/repositories/buffer_repository.dart';
 
 enum StreamInterval { realtime, one, three, five }
 
@@ -16,7 +17,7 @@ enum StreamInterval { realtime, one, three, five }
 class BridgeProvider extends ChangeNotifier {
   final BluetoothSource _bt;
   final FirestoreSource _firestore;
-  final BufferRepositoryImpl _buffer;
+  final BufferRepository _buffer; // [Fix #4] interface, not impl
   final NetworkMonitor _network;
 
   final List<Packet> _log = [];
@@ -25,6 +26,8 @@ class BridgeProvider extends ChangeNotifier {
   bool _online = false;
   StreamInterval _interval = StreamInterval.one;
   int _pendingCount = 0;
+  // [Fix #4] Expose init errors so UI can surface them.
+  String? _initError;
 
   StreamSubscription<Packet>? _btSub;
   StreamSubscription<bool>? _netSub;
@@ -33,13 +36,18 @@ class BridgeProvider extends ChangeNotifier {
   BridgeProvider({
     required BluetoothSource btSource,
     required FirestoreSource firestoreSource,
-    required BufferRepositoryImpl bufferRepo,
+    required BufferRepository bufferRepo, // [Fix #4] interface
     required NetworkMonitor networkMonitor,
   })  : _bt = btSource,
         _firestore = firestoreSource,
         _buffer = bufferRepo,
         _network = networkMonitor {
-    _init();
+    // [Fix #4] Errors from _init() are caught and stored instead of being
+    // silently swallowed as an unhandled async exception.
+    _init().catchError((Object e) {
+      _initError = e.toString();
+      notifyListeners();
+    });
   }
 
   List<Packet> get packetLog => List.unmodifiable(_log);
@@ -47,6 +55,7 @@ class BridgeProvider extends ChangeNotifier {
   bool get isScanning => _bt.isScanning;
   StreamInterval get interval => _interval;
   int get pendingCount => _pendingCount;
+  String? get initError => _initError;
 
   Future<void> _init() async {
     _online = await _network.isOnline;
@@ -82,7 +91,12 @@ class BridgeProvider extends ChangeNotifier {
       StreamInterval.three => 3,
       StreamInterval.five => 5,
     };
-    _batchTimer = Timer(Duration(seconds: secs), _flushBatch);
+    _batchTimer = Timer(Duration(seconds: secs), () {
+      // [Fix #4] Wrap async timer callback so exceptions don't go unhandled.
+      _flushBatch().catchError((Object e) {
+        debugPrint('[BridgeProvider] _flushBatch error: $e');
+      });
+    });
   }
 
   Future<void> _flushBatch() async {

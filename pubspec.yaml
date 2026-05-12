@@ -32,7 +32,6 @@ dependencies:
 
   # Local packet buffer
   sqflite: ^2.3.3+1
-  path_provider: ^2.1.4
   path: ^1.9.0
 
   # Supabase (AI chat app — auth, DB, Edge Functions)

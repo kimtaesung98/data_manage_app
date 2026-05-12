@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/conversation.dart';
@@ -19,10 +20,12 @@ class _ChatPageState extends State<ChatPage> {
   final _scrollController = ScrollController();
 
   List<Message> _messages = [];
-  // Optimistic messages shown while waiting for API response
   final List<_OptimisticMessage> _optimistic = [];
   bool _sending = false;
-  RealtimeChannel? _channel;
+
+  // [Fix #3] Store subscription so it can be canceled in dispose().
+  // _channel was declared but never assigned — removed entirely.
+  StreamSubscription<List<Message>>? _messagesSub;
 
   @override
   void initState() {
@@ -31,7 +34,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _subscribeMessages() {
-    _service.messagesStream(widget.conversation.id).listen((msgs) {
+    _messagesSub = _service
+        .messagesStream(widget.conversation.id)
+        .listen((msgs) {
       if (mounted) {
         setState(() => _messages = msgs);
         _scrollToBottom();
@@ -56,7 +61,7 @@ class _ChatPageState extends State<ChatPage> {
         history: _messages,
         userMessage: text,
       );
-      // Realtime stream will update _messages automatically
+      // Realtime stream updates _messages automatically
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,9 +95,9 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _messagesSub?.cancel();
     _textController.dispose();
     _scrollController.dispose();
-    _channel?.unsubscribe();
     super.dispose();
   }
 
@@ -164,8 +169,8 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(height: 4),
             Text(
               'Claude가 답변드립니다',
-              style: TextStyle(color: Colors.white.withOpacity(0.25),
-                  fontSize: 13),
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.25), fontSize: 13),
             ),
           ],
         ),
@@ -191,8 +196,7 @@ class _MessageItem extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 4),
         constraints:
             BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isUser
               ? const Color(0xFF7C5CFC)
