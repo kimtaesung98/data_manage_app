@@ -35,6 +35,9 @@ dependencies:
   path_provider: ^2.1.4
   path: ^1.9.0
 
+  # Supabase (AI chat app — auth, DB, Edge Functions)
+  supabase_flutter: ^2.7.0
+
   # Utilities
   intl: ^0.19.0
   uuid: ^4.4.2
