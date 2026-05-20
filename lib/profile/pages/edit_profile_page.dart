@@ -112,12 +112,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
               style: const TextStyle(color: Colors.white),
               decoration: _inputDecoration('https://example.com/photo.jpg'),
               keyboardType: TextInputType.url,
-              onChanged: (_) => setState(() {}),
               validator: (v) {
                 if (v != null && v.trim().isNotEmpty) {
                   final uri = Uri.tryParse(v.trim());
-                  if (uri == null || !uri.hasScheme) {
-                    return '올바른 URL을 입력하세요';
+                  if (uri == null || uri.scheme != 'https') {
+                    return 'https:// 로 시작하는 URL을 입력하세요';
                   }
                 }
                 return null;

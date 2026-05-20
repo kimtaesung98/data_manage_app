@@ -103,15 +103,11 @@ class BridgeProvider extends ChangeNotifier {
     final batch = List<Packet>.from(_pendingBatch);
     _pendingBatch.clear();
     if (!_online) {
-      for (final p in batch) {
-        await _buffer.savePacket(p);
-      }
+      await Future.wait(batch.map(_buffer.savePacket));
       await _refreshPendingCount();
       return;
     }
-    for (final p in batch) {
-      await _upload(p);
-    }
+    await Future.wait(batch.map(_upload));
   }
 
   Future<void> _upload(Packet packet) async {

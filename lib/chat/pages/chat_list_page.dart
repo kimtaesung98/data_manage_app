@@ -17,6 +17,7 @@ class _ChatListPageState extends State<ChatListPage> {
   final _service = SupabaseChatService();
   List<Conversation> _conversations = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -25,10 +26,12 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       _conversations = await _service.fetchConversations();
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) setState(() => _error = '대화 목록을 불러오지 못했습니다.\n$e');
+    }
     if (mounted) setState(() => _loading = false);
   }
 
@@ -80,7 +83,9 @@ class _ChatListPageState extends State<ChatListPage> {
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF7C5CFC)))
-          : _conversations.isEmpty
+          : _error != null
+              ? _errorState()
+              : _conversations.isEmpty
               ? _emptyState()
               : RefreshIndicator(
                   onRefresh: _load,
@@ -106,6 +111,25 @@ class _ChatListPageState extends State<ChatListPage> {
                 ),
     );
   }
+
+  Widget _errorState() => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+            const SizedBox(height: 12),
+            Text(_error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: _load,
+              child: const Text('다시 시도',
+                  style: TextStyle(color: Color(0xFF7C5CFC))),
+            ),
+          ],
+        ),
+      );
 
   Widget _emptyState() => Center(
         child: Column(
